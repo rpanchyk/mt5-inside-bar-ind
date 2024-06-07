@@ -20,6 +20,22 @@
 #property indicator_label1 "Open;High;Low;Close"
 #property indicator_width1 3
 
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+class HLBar
+  {
+public:
+                     HLBar(double high, double low) : m_High(high), m_Low(low) {}
+   double            GetHigh() { return m_High; }
+   double            GetLow() { return m_Low; }
+   //bool              IsGreaterOrEqual(double high, double low) { return m_High >= high && m_Low <= low; }
+   //bool              IsInsideBar(HLBar bar) { return bar-> >= high && m_Low <= low; }
+private:
+   double            m_High;
+   double            m_Low;
+  };
+
 // buffers
 double InsideBarOpenBuf[], InsideBarHighBuf[], InsideBarLowBuf[], InsideBarCloseBuf[]; // Buffers for data
 double InsideBarLineColorBuf[]; // Buffer for color indexes
@@ -60,7 +76,7 @@ int OnInit()
    PlotIndexSetInteger(0, PLOT_COLOR_INDEXES, 2);
    PlotIndexSetInteger(0, PLOT_LINE_COLOR, 0, InpUpBarColor);   // 0th index color
    PlotIndexSetInteger(0, PLOT_LINE_COLOR, 1, InpDownBarColor); // 1st index color
-   
+
    IndicatorSetString(INDICATOR_SHORTNAME, "InsideBar indicator");
 
    Print("InsideBar indicator initialization finished");
@@ -112,16 +128,39 @@ int OnCalculate(const int rates_total,
       PrintFormat("RatesTotal: %i, PrevCalculated: %i", rates_total, prev_calculated);
      }
 
-   for(int i = prev_calculated; i < rates_total; i++)
+   HLBar *prevBar = NULL;
+   HLBar *currBar = NULL;
+   for(int i = rates_total - prev_calculated - 2; i > 0; i--)
      {
       InsideBarOpenBuf[i] = open[i];
       InsideBarHighBuf[i] = high[i];
       InsideBarLowBuf[i] = low[i];
       InsideBarCloseBuf[i] = close[i];
 
-      bool insideBar = isInsideBar(i, open, high, low, close);
-      InsideBarLineColorBuf[i] = insideBar ? open[i] <= close[i] ? 0 : 1 : -1;
+      //HLBar prevBar(high[i + 1], low[i + 1]);
+      //HLBar currBar(high[i], low[i]);
+
+      prevBar = prevBar != NULL ? prevBar : new HLBar(high[i + 1], low[i + 1]);
+      currBar = new HLBar(high[i], low[i]);
+
+      if(isInsideBar(prevBar, currBar))
+        {
+         InsideBarLineColorBuf[i] = open[i] <= close[i] ? 0 : 1;
+        }
+      else
+        {
+         InsideBarLineColorBuf[i] = -1;
+
+         prevBar = NULL;
+        }
+
+      //bool currInsideBar = isInsideBar(i, open, high, low, close);
+      //InsideBarLineColorBuf[i] = currInsideBar ? open[i] <= close[i] ? 0 : 1 : -1;
+
+
      }
+   delete prevBar;
+   delete currBar;
 
    return rates_total; // set prev_calculated on next call
   }
@@ -129,8 +168,21 @@ int OnCalculate(const int rates_total,
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
-bool isInsideBar(int i, const double &open[], const double &high[], const double &low[], const double &close[])
+//bool isInsideBar(int i, const double &open[], const double &high[], const double &low[], const double &close[])
+//  {
+//   double prevHigh = high[i + 1];
+//   double prevLow = low[i + 1];
+//   double currHigh = high[i];
+//   double currLow = low[i];
+//
+//   return prevHigh >= currHigh && prevLow <= currLow;
+//  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool isInsideBar(HLBar *prevBar, HLBar *currBar)
   {
-   return false;
+   return prevBar.GetHigh() >= currBar.GetHigh() && prevBar.GetLow() <= currBar.GetLow();
   }
 //+------------------------------------------------------------------+
