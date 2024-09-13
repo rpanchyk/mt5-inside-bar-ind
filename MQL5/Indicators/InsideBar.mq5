@@ -3,9 +3,9 @@
 //|                                         Copyright 2024, rpanchyk |
 //|                                      https://github.com/rpanchyk |
 //+------------------------------------------------------------------+
-#property copyright "Copyright 2024, rpanchyk"
-#property link      "https://github.com/rpanchyk"
-#property version   "1.00"
+#property copyright   "Copyright 2024, rpanchyk"
+#property link        "https://github.com/rpanchyk"
+#property version     "1.01"
 #property description "Indicator shows inside bars"
 #property description ""
 #property description "Used documentation:"
@@ -21,17 +21,27 @@
 #property indicator_width1 3
 
 //+------------------------------------------------------------------+
-//| Model for Bar keeping High and Low prices                        |
+//| Model for Bar keeping High and Low prices at Time                |
 //+------------------------------------------------------------------+
 class HLBar
   {
 public:
-                     HLBar(double high, double low) : m_High(high), m_Low(low) {}
+                     HLBar() : m_Time(0), m_High(0), m_Low(0) {}
+   datetime          GetTime() { return m_Time; }
    double            GetHigh() { return m_High; }
    double            GetLow() { return m_Low; }
+   void              Set(datetime time, double high, double low) { m_Time = time; m_High = high; m_Low = low; }
 private:
+   datetime          m_Time;
    double            m_High;
    double            m_Low;
+  };
+
+enum ENUM_ALERT_TYPE
+  {
+   NO_ALERT, // None
+   EACH_BAR_ALERT, // On each inside bar
+   FIRST_BAR_ALERT // On first inside bar only
   };
 
 // buffers
@@ -42,9 +52,14 @@ double InsideBarLineColorBuf[]; // Buffer for color indexes
 input group "Section :: Main";
 input color InpUpBarColor = clrSilver; // Color of bullish inside bar
 input color InpDownBarColor = clrSilver; // Color of bearish inside bar
+input ENUM_ALERT_TYPE InpAlertType = NO_ALERT; // Alert type
 
 input group "Section :: Dev";
 input bool InpDebugEnabled = false; // Endble debug (verbose logging)
+
+// runtime
+HLBar prevBar;
+HLBar currBar;
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -76,6 +91,9 @@ int OnInit()
    PlotIndexSetInteger(0, PLOT_LINE_COLOR, 1, InpDownBarColor); // 1st index color
 
    IndicatorSetString(INDICATOR_SHORTNAME, "InsideBar indicator");
+
+   prevBar.Set(0, 0, 0);
+   currBar.Set(0, 0, 0);
 
    Print("InsideBar indicator initialization finished");
    return(INIT_SUCCEEDED);
@@ -116,44 +134,59 @@ int OnCalculate(const int rates_total,
       return rates_total;
      }
 
+   ArraySetAsSeries(time, true);
    ArraySetAsSeries(open, true);
    ArraySetAsSeries(high, true);
    ArraySetAsSeries(low, true);
    ArraySetAsSeries(close, true);
 
+   int limit = (int) MathMin(rates_total, rates_total - prev_calculated + 2);
    if(InpDebugEnabled)
      {
-      PrintFormat("RatesTotal: %i, PrevCalculated: %i", rates_total, prev_calculated);
+      PrintFormat("RatesTotal: %i, PrevCalculated: %i, Limit: %i", rates_total, prev_calculated, limit);
      }
 
-   HLBar *prevBar = NULL;
-   HLBar *currBar = NULL;
-   for(int i = rates_total - prev_calculated - 2; i > 0; i--)
+   InsideBarOpenBuf[0] = -1;
+   InsideBarHighBuf[0] = -1;
+   InsideBarLowBuf[0] = -1;
+   InsideBarCloseBuf[0] = -1;
+   InsideBarLineColorBuf[0] = -1;
+
+   for(int i = limit - 2; i > 0; i--)
      {
       InsideBarOpenBuf[i] = open[i];
       InsideBarHighBuf[i] = high[i];
       InsideBarLowBuf[i] = low[i];
       InsideBarCloseBuf[i] = close[i];
 
-      prevBar = prevBar != NULL ? prevBar : new HLBar(high[i + 1], low[i + 1]);
+      currBar.Set(time[i], high[i], low[i]);
 
-      delete currBar;
-      currBar = new HLBar(high[i], low[i]);
-
-      if(IsInsideBar(prevBar, currBar))
+      if(IsInsideBar())
         {
          InsideBarLineColorBuf[i] = open[i] <= close[i] ? 0 : 1;
+
+         string message = "New inside bar at " + TimeToString(time[i]);
+         if(InpDebugEnabled)
+           {
+            Print(message);
+           }
+
+         if(i == 1 && IsAlertEnabled(time[i])) // Handle alert on last bar only
+           {
+            if(time[i] != ReadLastInsideBarTime()) // Don't flood with the same alerts
+              {
+               Alert(message);
+               WriteLastInsideBarTime(time[i]);
+              }
+           }
         }
       else
         {
          InsideBarLineColorBuf[i] = -1;
 
-         delete prevBar;
-         prevBar = NULL; // clear inside bar
+         prevBar.Set(time[i], high[i], low[i]);
         }
      }
-   delete prevBar;
-   delete currBar;
 
    return rates_total; // set prev_calculated on next call
   }
@@ -161,8 +194,64 @@ int OnCalculate(const int rates_total,
 //+------------------------------------------------------------------+
 //|                                                                  |
 //+------------------------------------------------------------------+
-bool IsInsideBar(HLBar *prevBar, HLBar *currBar)
+bool IsInsideBar()
   {
    return prevBar.GetHigh() >= currBar.GetHigh() && prevBar.GetLow() <= currBar.GetLow();
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+bool IsAlertEnabled(datetime time)
+  {
+   switch(InpAlertType)
+     {
+      case EACH_BAR_ALERT:
+         return true;
+      case FIRST_BAR_ALERT:
+         return time - prevBar.GetTime() == PeriodSeconds(PERIOD_CURRENT);
+      case NO_ALERT:
+      default:
+         return false;
+     }
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+datetime ReadLastInsideBarTime()
+  {
+   int h = FileOpen(GetLastInsideBarFileName(), FILE_READ | FILE_ANSI | FILE_TXT);
+   if(h == INVALID_HANDLE)
+     {
+      PrintFormat("Error opening '%s' file to read.");
+      return 0;
+     }
+   string time = FileReadString(h);
+   FileClose(h);
+   return StringToTime(time);
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+void WriteLastInsideBarTime(datetime time)
+  {
+   int h = FileOpen(GetLastInsideBarFileName(), FILE_WRITE | FILE_ANSI | FILE_TXT);
+   if(h == INVALID_HANDLE)
+     {
+      PrintFormat("Error opening '%s' file to write.");
+      return;
+     }
+   FileWrite(h, TimeToString(time));
+   FileClose(h);
+  }
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+string GetLastInsideBarFileName()
+  {
+   return "insidebar_m" + IntegerToString(PeriodSeconds(PERIOD_CURRENT) / 60) + ".txt";
   }
 //+------------------------------------------------------------------+
