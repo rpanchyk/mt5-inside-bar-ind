@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2024, rpanchyk"
 #property link        "https://github.com/rpanchyk"
-#property version     "1.01"
+#property version     "1.02"
 #property description "Indicator shows inside bars"
 #property description ""
 #property description "Used documentation:"
