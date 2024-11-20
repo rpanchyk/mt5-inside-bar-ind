@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2024, rpanchyk"
 #property link        "https://github.com/rpanchyk"
-#property version     "1.02"
+#property version     "1.03"
 #property description "Indicator shows inside bars"
 #property description ""
 #property description "Used documentation:"
@@ -21,7 +21,7 @@
 #property indicator_width1 3
 
 //+------------------------------------------------------------------+
-//| Model for Bar keeping High and Low prices at Time                |
+//| Model for Bar keeping OHLC prices at Time                        |
 //+------------------------------------------------------------------+
 class HLBar
   {
@@ -43,8 +43,8 @@ private:
 
 enum ENUM_FINDBY_TYPE
   {
-   FINDBY_HL, // By High/Low (wicks)
-   FINDBY_OC // By Open/Close (body)
+   FINDBY_HL, // High/Low (wicks)
+   FINDBY_OC // Open/Close (body)
   };
 
 enum ENUM_ALERT_TYPE
@@ -61,6 +61,7 @@ double InsideBarLineColorBuf[]; // Buffer for color indexes
 // config
 input group "Section :: Main";
 input ENUM_FINDBY_TYPE InpFindByType = FINDBY_HL; // Find by
+input bool InpMarkFirstBarOnly = false; // Mark first inside bar only in sequence
 input ENUM_ALERT_TYPE InpAlertType = NO_ALERT; // Alert type
 
 input group "Section :: Style";
@@ -100,7 +101,7 @@ int OnInit()
    SetIndexBuffer(4, InsideBarLineColorBuf, INDICATOR_COLOR_INDEX);
 
    PlotIndexSetInteger(0, PLOT_COLOR_INDEXES, 2);
-   PlotIndexSetInteger(0, PLOT_LINE_COLOR, 0, InpUpBarColor);   // 0th index color
+   PlotIndexSetInteger(0, PLOT_LINE_COLOR, 0, InpUpBarColor); // 0th index color
    PlotIndexSetInteger(0, PLOT_LINE_COLOR, 1, InpDownBarColor); // 1st index color
 
    IndicatorSetString(INDICATOR_SHORTNAME, "InsideBar indicator");
@@ -176,12 +177,20 @@ int OnCalculate(const int rates_total,
 
       if(IsInsideBar())
         {
-         InsideBarLineColorBuf[i] = open[i] <= close[i] ? 0 : 1;
-
          string message = "New inside bar at " + TimeToString(time[i]);
          if(InpDebugEnabled)
            {
             Print(message);
+           }
+
+         if(InpMarkFirstBarOnly)
+           {
+            bool isFirstInsideBar = time[i] - prevBar.GetTime() == PeriodSeconds(PERIOD_CURRENT);
+            InsideBarLineColorBuf[i] = isFirstInsideBar ? open[i] <= close[i] ? 0 : 1 : -1;
+           }
+         else
+           {
+            InsideBarLineColorBuf[i] = open[i] <= close[i] ? 0 : 1;
            }
 
          if(i == 1 && IsAlertEnabled(time[i])) // Handle alert on last bar only
@@ -201,7 +210,7 @@ int OnCalculate(const int rates_total,
         }
      }
 
-   return rates_total; // set prev_calculated on next call
+   return rates_total; // Set prev_calculated on next call
   }
 
 //+------------------------------------------------------------------+
