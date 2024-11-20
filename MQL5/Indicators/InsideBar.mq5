@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2024, rpanchyk"
 #property link        "https://github.com/rpanchyk"
-#property version     "1.01"
+#property version     "1.02"
 #property description "Indicator shows inside bars"
 #property description ""
 #property description "Used documentation:"
@@ -26,15 +26,25 @@
 class HLBar
   {
 public:
-                     HLBar() : m_Time(0), m_High(0), m_Low(0) {}
+                     HLBar() : m_Time(0), m_Open(0), m_High(0), m_Low(0), m_Close(0) {}
    datetime          GetTime() { return m_Time; }
+   double            GetOpen() { return m_Open; }
    double            GetHigh() { return m_High; }
    double            GetLow() { return m_Low; }
-   void              Set(datetime time, double high, double low) { m_Time = time; m_High = high; m_Low = low; }
+   double            GetClose() { return m_Close; }
+   void              Set(datetime time, double open, double high, double low, double close) { m_Time = time; m_Open = open; m_High = high; m_Low = low; m_Close = close; }
 private:
    datetime          m_Time;
+   double            m_Open;
    double            m_High;
    double            m_Low;
+   double            m_Close;
+  };
+
+enum ENUM_FINDBY_TYPE
+  {
+   FINDBY_HL, // By High/Low (wicks)
+   FINDBY_OC // By Open/Close (body)
   };
 
 enum ENUM_ALERT_TYPE
@@ -50,12 +60,15 @@ double InsideBarLineColorBuf[]; // Buffer for color indexes
 
 // config
 input group "Section :: Main";
-input color InpUpBarColor = clrSilver; // Color of bullish inside bar
-input color InpDownBarColor = clrSilver; // Color of bearish inside bar
+input ENUM_FINDBY_TYPE InpFindByType = FINDBY_HL; // Find by
 input ENUM_ALERT_TYPE InpAlertType = NO_ALERT; // Alert type
 
+input group "Section :: Style";
+input color InpUpBarColor = clrSilver; // Color of bullish inside bar
+input color InpDownBarColor = clrSilver; // Color of bearish inside bar
+
 input group "Section :: Dev";
-input bool InpDebugEnabled = false; // Endble debug (verbose logging)
+input bool InpDebugEnabled = false; // Enable debug (verbose logging)
 
 // runtime
 HLBar prevBar;
@@ -92,8 +105,8 @@ int OnInit()
 
    IndicatorSetString(INDICATOR_SHORTNAME, "InsideBar indicator");
 
-   prevBar.Set(0, 0, 0);
-   currBar.Set(0, 0, 0);
+   prevBar.Set(0, 0, 0, 0, 0);
+   currBar.Set(0, 0, 0, 0, 0);
 
    Print("InsideBar indicator initialization finished");
    return(INIT_SUCCEEDED);
@@ -159,7 +172,7 @@ int OnCalculate(const int rates_total,
       InsideBarLowBuf[i] = low[i];
       InsideBarCloseBuf[i] = close[i];
 
-      currBar.Set(time[i], high[i], low[i]);
+      currBar.Set(time[i], open[i], high[i], low[i], close[i]);
 
       if(IsInsideBar())
         {
@@ -184,7 +197,7 @@ int OnCalculate(const int rates_total,
         {
          InsideBarLineColorBuf[i] = -1;
 
-         prevBar.Set(time[i], high[i], low[i]);
+         prevBar.Set(time[i], open[i], high[i], low[i], close[i]);
         }
      }
 
@@ -196,7 +209,17 @@ int OnCalculate(const int rates_total,
 //+------------------------------------------------------------------+
 bool IsInsideBar()
   {
-   return prevBar.GetHigh() >= currBar.GetHigh() && prevBar.GetLow() <= currBar.GetLow();
+   double prevMax = InpFindByType == FINDBY_HL
+                    ? MathMax(prevBar.GetHigh(), prevBar.GetLow())
+                    : MathMax(prevBar.GetOpen(), prevBar.GetClose());
+   double prevMin = InpFindByType == FINDBY_HL
+                    ? MathMin(prevBar.GetHigh(), prevBar.GetLow())
+                    : MathMin(prevBar.GetOpen(), prevBar.GetClose());
+
+   double currMax = MathMax(currBar.GetHigh(), currBar.GetLow());
+   double currMin = MathMin(currBar.GetHigh(), currBar.GetLow());
+
+   return prevMax >= currMax && prevMin <= currMin;
   }
 
 //+------------------------------------------------------------------+
