@@ -23,10 +23,10 @@
 //+------------------------------------------------------------------+
 //| Model for Bar keeping OHLC prices at Time                        |
 //+------------------------------------------------------------------+
-class HLBar
+class OHLCBar
   {
 public:
-                     HLBar() : m_Time(0), m_Open(0), m_High(0), m_Low(0), m_Close(0) {}
+                     OHLCBar() : m_Time(0), m_Open(0), m_High(0), m_Low(0), m_Close(0) {}
    datetime          GetTime() { return m_Time; }
    double            GetOpen() { return m_Open; }
    double            GetHigh() { return m_High; }
@@ -72,8 +72,8 @@ input group "Section :: Dev";
 input bool InpDebugEnabled = false; // Enable debug (verbose logging)
 
 // runtime
-HLBar prevBar;
-HLBar currBar;
+OHLCBar prevBar;
+OHLCBar currBar;
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -214,7 +214,7 @@ int OnCalculate(const int rates_total,
   }
 
 //+------------------------------------------------------------------+
-//|                                                                  |
+//| Returns true if bar matches inside bar conditions                |
 //+------------------------------------------------------------------+
 bool IsInsideBar()
   {
@@ -232,7 +232,7 @@ bool IsInsideBar()
   }
 
 //+------------------------------------------------------------------+
-//|                                                                  |
+//| Returns true if alert can be shown                               |
 //+------------------------------------------------------------------+
 bool IsAlertEnabled(datetime time)
   {
@@ -249,7 +249,7 @@ bool IsAlertEnabled(datetime time)
   }
 
 //+------------------------------------------------------------------+
-//|                                                                  |
+//| Obtains last inside bar time occurence                           |
 //+------------------------------------------------------------------+
 datetime ReadLastInsideBarTime()
   {
@@ -265,7 +265,7 @@ datetime ReadLastInsideBarTime()
   }
 
 //+------------------------------------------------------------------+
-//|                                                                  |
+//| Saves last inside bar time occurence                             |
 //+------------------------------------------------------------------+
 void WriteLastInsideBarTime(datetime time)
   {
@@ -280,7 +280,7 @@ void WriteLastInsideBarTime(datetime time)
   }
 
 //+------------------------------------------------------------------+
-//|                                                                  |
+//| Returns file name according to current timeframe                 |
 //+------------------------------------------------------------------+
 string GetLastInsideBarFileName()
   {
