@@ -43,8 +43,8 @@ private:
 
 enum ENUM_FINDBY_TYPE
   {
-   FINDBY_HL, // By High/Low (wicks)
-   FINDBY_OC // By Open/Close (body)
+   FINDBY_HL, // High/Low (wicks)
+   FINDBY_OC // Open/Close (body)
   };
 
 enum ENUM_ALERT_TYPE
