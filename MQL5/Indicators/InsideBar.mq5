@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2024, rpanchyk"
 #property link        "https://github.com/rpanchyk"
-#property version     "1.03"
+#property version     "1.04"
 #property description "Indicator shows inside bars"
 #property description ""
 #property description "Used documentation:"
@@ -41,10 +41,10 @@ private:
    double            m_Close;
   };
 
-enum ENUM_FINDBY_TYPE
+enum ENUM_BAR_RANGE_TYPE
   {
-   FINDBY_HL, // High/Low (wicks)
-   FINDBY_OC // Open/Close (body)
+   RANGE_HIGH_LOW, // High/Low (candle wicks)
+   RANGE_OPEN_CLOSE // Open/Close (candle body)
   };
 
 enum ENUM_ALERT_TYPE
@@ -60,7 +60,8 @@ double InsideBarLineColorBuf[]; // Buffer for color indexes
 
 // config
 input group "Section :: Main";
-input ENUM_FINDBY_TYPE InpFindByType = FINDBY_HL; // Find by
+input ENUM_BAR_RANGE_TYPE InpMainBarRangeType = RANGE_HIGH_LOW; // Main (previous) bar range
+input ENUM_BAR_RANGE_TYPE InpInsideBarRangeType = RANGE_HIGH_LOW; // Inside (current) bar range
 input bool InpMarkFirstBarOnly = false; // Mark first inside bar only in sequence
 input ENUM_ALERT_TYPE InpAlertType = NO_ALERT; // Alert type
 
@@ -218,17 +219,33 @@ int OnCalculate(const int rates_total,
 //+------------------------------------------------------------------+
 bool IsInsideBar()
   {
-   double prevMax = InpFindByType == FINDBY_HL
-                    ? MathMax(prevBar.GetHigh(), prevBar.GetLow())
-                    : MathMax(prevBar.GetOpen(), prevBar.GetClose());
-   double prevMin = InpFindByType == FINDBY_HL
-                    ? MathMin(prevBar.GetHigh(), prevBar.GetLow())
-                    : MathMin(prevBar.GetOpen(), prevBar.GetClose());
+   double prevMin = BarMin(InpMainBarRangeType, &prevBar);
+   double prevMax = BarMax(InpMainBarRangeType, &prevBar);
 
-   double currMax = MathMax(currBar.GetHigh(), currBar.GetLow());
-   double currMin = MathMin(currBar.GetHigh(), currBar.GetLow());
+   double currMin = BarMin(InpInsideBarRangeType, &currBar);
+   double currMax = BarMax(InpInsideBarRangeType, &currBar);
 
-   return prevMax >= currMax && prevMin <= currMin;
+   return prevMin <= currMin && prevMax >= currMax;
+  }
+
+//+------------------------------------------------------------------+
+//| Returns minimum price of bar regarding to range type             |
+//+------------------------------------------------------------------+
+double BarMin(ENUM_BAR_RANGE_TYPE rangeType, OHLCBar *bar)
+  {
+   return rangeType == RANGE_HIGH_LOW
+          ? MathMin(bar.GetHigh(), bar.GetLow())
+          : MathMin(bar.GetOpen(), bar.GetClose());
+  }
+
+//+------------------------------------------------------------------+
+//| Returns maximum price of bar regarding to range type             |
+//+------------------------------------------------------------------+
+double BarMax(ENUM_BAR_RANGE_TYPE rangeType, OHLCBar *bar)
+  {
+   return rangeType == RANGE_HIGH_LOW
+          ? MathMax(bar.GetHigh(), bar.GetLow())
+          : MathMax(bar.GetOpen(), bar.GetClose());
   }
 
 //+------------------------------------------------------------------+
