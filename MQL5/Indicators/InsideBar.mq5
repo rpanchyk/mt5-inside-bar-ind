@@ -20,10 +20,11 @@
 #property indicator_label1 "Open;High;Low;Close"
 #property indicator_width1 3
 
-//+------------------------------------------------------------------+
-//| Model for Bar keeping OHLC prices at Time                        |
-//+------------------------------------------------------------------+
-class OHLCBar
+// includes
+#include <Generic\HashMap.mqh>
+
+// types
+class OHLCBar // Keeps OHLC prices at time
   {
 public:
                      OHLCBar() : m_Time(0), m_Open(0), m_High(0), m_Low(0), m_Close(0) {}
@@ -73,6 +74,7 @@ input group "Section :: Dev";
 input bool InpDebugEnabled = false; // Enable debug (verbose logging)
 
 // runtime
+CHashMap<int, datetime> insideBarToTime;
 OHLCBar prevBar;
 OHLCBar currBar;
 
@@ -266,41 +268,23 @@ bool IsAlertEnabled(datetime time)
   }
 
 //+------------------------------------------------------------------+
-//| Obtains last inside bar time occurence                           |
+//| Obtains last inside bar time occurrence                          |
 //+------------------------------------------------------------------+
 datetime ReadLastInsideBarTime()
   {
-   int h = FileOpen(GetLastInsideBarFileName(), FILE_READ | FILE_ANSI | FILE_TXT);
-   if(h == INVALID_HANDLE)
+   datetime lastInsideBarTime;
+   if(insideBarToTime.TryGetValue(PeriodSeconds(PERIOD_CURRENT), lastInsideBarTime))
      {
-      PrintFormat("Error opening '%s' file to read.");
-      return 0;
+      return lastInsideBarTime;
      }
-   string time = FileReadString(h);
-   FileClose(h);
-   return StringToTime(time);
+   return NULL;
   }
 
 //+------------------------------------------------------------------+
-//| Saves last inside bar time occurence                             |
+//| Saves last inside bar time occurrence                            |
 //+------------------------------------------------------------------+
 void WriteLastInsideBarTime(datetime time)
   {
-   int h = FileOpen(GetLastInsideBarFileName(), FILE_WRITE | FILE_ANSI | FILE_TXT);
-   if(h == INVALID_HANDLE)
-     {
-      PrintFormat("Error opening '%s' file to write.");
-      return;
-     }
-   FileWrite(h, TimeToString(time));
-   FileClose(h);
-  }
-
-//+------------------------------------------------------------------+
-//| Returns file name according to current timeframe                 |
-//+------------------------------------------------------------------+
-string GetLastInsideBarFileName()
-  {
-   return "insidebar_m" + IntegerToString(PeriodSeconds(PERIOD_CURRENT) / 60) + ".txt";
+   insideBarToTime.TrySetValue(PeriodSeconds(PERIOD_CURRENT), time);
   }
 //+------------------------------------------------------------------+
