@@ -64,6 +64,7 @@ input group "Section :: Main";
 input ENUM_BAR_RANGE_TYPE InpMainBarRangeType = RANGE_HIGH_LOW; // Main (previous) bar range
 input ENUM_BAR_RANGE_TYPE InpInsideBarRangeType = RANGE_HIGH_LOW; // Inside (current) bar range
 input bool InpMarkFirstBarOnly = false; // Mark first inside bar only in sequence
+input bool InpResetFirstBarOnly = false; // Reset first inside bar only in sequence
 input ENUM_ALERT_TYPE InpAlertType = NO_ALERT; // Alert type
 
 input group "Section :: Style";
@@ -192,7 +193,11 @@ int OnCalculate(const int rates_total,
            {
             bool isFirstInsideBar = time[i] - prevBar.GetTime() == PeriodSeconds(PERIOD_CURRENT);
             InsideBarLineColorBuf[i] = isFirstInsideBar ? open[i] <= close[i] ? 0 : 1 : -1;
-            prevBar.Set(time[i], open[i], high[i], low[i], close[i]);
+
+            if(InpResetFirstBarOnly)
+              {
+               prevBar.Set(time[i], open[i], high[i], low[i], close[i]);
+              }
            }
          else
            {
