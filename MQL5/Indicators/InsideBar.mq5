@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright   "Copyright 2024, rpanchyk"
 #property link        "https://github.com/rpanchyk"
-#property version     "1.04"
+#property version     "1.05"
 #property description "Indicator shows inside bars"
 #property description ""
 #property description "Used documentation:"
@@ -64,6 +64,7 @@ input group "Section :: Main";
 input ENUM_BAR_RANGE_TYPE InpMainBarRangeType = RANGE_HIGH_LOW; // Main (previous) bar range
 input ENUM_BAR_RANGE_TYPE InpInsideBarRangeType = RANGE_HIGH_LOW; // Inside (current) bar range
 input bool InpMarkFirstBarOnly = false; // Mark first inside bar only in sequence
+input int InpInsideBarSequence = 1; // Count of nested inside bars in sequence
 input ENUM_ALERT_TYPE InpAlertType = NO_ALERT; // Alert type
 
 input group "Section :: Style";
@@ -77,6 +78,7 @@ input bool InpDebugEnabled = false; // Enable debug (verbose logging)
 CHashMap<int, datetime> insideBarToTime;
 OHLCBar prevBar;
 OHLCBar currBar;
+int insideBarSequenceCounter;
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -111,6 +113,7 @@ int OnInit()
 
    prevBar.Set(0, 0, 0, 0, 0);
    currBar.Set(0, 0, 0, 0, 0);
+   insideBarSequenceCounter = 0;
 
    Print("InsideBar indicator initialization finished");
    return(INIT_SUCCEEDED);
@@ -178,7 +181,17 @@ int OnCalculate(const int rates_total,
 
       currBar.Set(time[i], open[i], high[i], low[i], close[i]);
 
-      if(IsInsideBar())
+      bool confirmed = IsInsideBar();
+      if(confirmed)
+        {
+         confirmed = ++insideBarSequenceCounter >= InpInsideBarSequence;
+        }
+      else
+        {
+         insideBarSequenceCounter = 0;
+        }
+
+      if(confirmed)
         {
          string message = "New inside bar at " + TimeToString(time[i]);
          if(InpDebugEnabled)
